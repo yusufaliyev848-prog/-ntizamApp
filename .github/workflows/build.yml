@@ -1,0 +1,110 @@
+
+name: Build IntizamApp APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Create Android project
+        run: |
+          mkdir -p app/src/main/java/com/example/intizamapp
+          mkdir -p app/src/main/res/values
+          echo 'include(":app")' > settings.gradle.kts
+          cat > build.gradle.kts <<'EOF'
+          plugins {
+              id("com.android.application") version "8.6.1" apply false
+              id("org.jetbrains.kotlin.android") version "2.0.21" apply false
+              id("org.jetbrains.kotlin.plugin.compose") version "2.0.21" apply false
+          }
+          EOF
+          cat > gradle.properties <<'EOF'
+          android.useAndroidX=true
+          EOF
+          cat > app/build.gradle.kts <<'EOF'
+          plugins {
+              id("com.android.application")
+              id("org.jetbrains.kotlin.android")
+              id("org.jetbrains.kotlin.plugin.compose")
+          }
+          android {
+              namespace = "com.example.intizamapp"
+              compileSdk = 35
+              defaultConfig {
+                  applicationId = "com.example.intizamapp"
+                  minSdk = 26
+                  targetSdk = 35
+                  versionCode = 1
+                  versionName = "1.0"
+              }
+          }
+          dependencies {
+              implementation("androidx.activity:activity-compose:1.9.2")
+              implementation(platform("androidx.compose:compose-bom:2024.09.03"))
+              implementation("androidx.compose.material3:material3")
+              implementation("androidx.compose.foundation:foundation")
+          }
+          EOF
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <application android:theme="@android:style/Theme.Material.Light.NoActionBar" android:label="IntizamApp">
+                  <activity android:name=".MainActivity" android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+      - name: Create placeholder source
+        run: |
+          cat > app/src/main/java/com/example/intizamapp/MainActivity.kt <<'EOF'
+          package com.example.intizamapp
+          import android.os.Bundle
+          import androidx.activity.ComponentActivity
+          import androidx.activity.compose.setContent
+          import androidx.compose.material3.*
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          class MainActivity : ComponentActivity() {
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+                  setContent {
+                      MaterialTheme {
+                          Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                              Text("IntizamApp", fontSize = 30.sp)
+                              Text("700 bal hədəfinə doğru!", modifier = Modifier.padding(top = 12.dp))
+                          }
+                      }
+                  }
+              }
+          }
+          EOF
+
+      - name: Build APK
+        run: |
+          gradle wrapper --gradle-version 8.7
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: IntizamApp-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
